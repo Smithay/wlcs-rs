@@ -1,0 +1,14 @@
+[package]
+name = "wlcs-rs"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.56.1" # nix
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+calloop = "0.10.5"
+container_of = "0.5.1"
+memoffset = "0.8.0"
+nix = { version = "0.26.2", default-features = false, features = ["signal"] }
+wayland-sys = { version = "0.30.1", features = ["client", "server"] }
