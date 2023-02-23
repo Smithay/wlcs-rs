@@ -2,7 +2,10 @@
 //! wlcs Bindings for Rust
 //!
 
+#![deny(unsafe_op_in_unsafe_fn)]
 #![warn(missing_docs)]
+
+use std::os::fd::OwnedFd;
 
 use wayland_sys::{
     client::{wl_display, wl_proxy},
@@ -70,8 +73,8 @@ pub trait Wlcs {
     /// Stop the display server
     fn stop(&mut self);
 
-    /// Create a socket for a Wayland client
-    fn create_client_socket(&self) -> i32;
+    /// Create a socket for a Wayland client.
+    fn create_client_socket(&self) -> OwnedFd;
 
     /// Position a window in absolute coordinates
     fn position_window_absolute(
