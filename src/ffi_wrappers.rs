@@ -33,6 +33,42 @@ struct TouchHandle<W: Wlcs> {
     t: W::Touch,
 }
 
+/// Helper function for getting a [`DisplayServerHandle`] from a [`WlcsDisplayServer`] pointer.
+///
+/// # Safety
+///
+/// - The pointer must be valid
+/// - The library must have initialized the pointer as an instance of a [`DisplayServerHandle`].
+/// - The caller has picked a suitable lifetime to ensure the returned mutable reference is not held when
+///   control is returned to wlcs
+unsafe fn get_display_server_handle_mut<'a, W: Wlcs>(
+    ptr: *mut WlcsDisplayServer,
+) -> &'a mut DisplayServerHandle<W> {
+    unsafe { &mut *container_of!(ptr, DisplayServerHandle<W>, wlcs_display_server) }
+}
+
+/// Helper function for getting a [`DisplayServerHandle`] from a [`WlcsDisplayServer`] pointer.
+///
+/// # Safety
+///
+/// - The pointer must be valid
+/// - The library must have initialized the pointer as an instance of a [`DisplayServerHandle`].
+/// - The caller has picked a suitable lifetime to ensure the returned reference is not held when control is
+///   returned to wlcs
+unsafe fn get_display_server_handle_ref<'a, W: Wlcs>(
+    ptr: *const WlcsDisplayServer,
+) -> &'a DisplayServerHandle<W> {
+    unsafe { &*container_of!(ptr, DisplayServerHandle<W>, wlcs_display_server) }
+}
+
+unsafe fn get_pointer_handle<'a, W: Wlcs>(ptr: *mut WlcsPointer) -> &'a mut PointerHandle<W> {
+    unsafe { &mut *container_of!(ptr, PointerHandle<W>, wlcs_pointer) }
+}
+
+unsafe fn get_touch_handle<'a, W: Wlcs>(ptr: *mut WlcsTouch) -> &'a mut TouchHandle<W> {
+    unsafe { &mut *container_of!(ptr, TouchHandle<W>, wlcs_touch) }
+}
+
 #[allow(unused)]
 unsafe extern "C" fn create_server_ffi<W: Wlcs>(
     _argc: c_int,
@@ -41,11 +77,14 @@ unsafe extern "C" fn create_server_ffi<W: Wlcs>(
     // block the SIGPIPE signal here, we are a cdynlib so Rust does not do it for us
     match std::panic::catch_unwind(|| {
         use nix::sys::signal::{sigaction, SaFlags, SigAction, SigHandler, SigSet, Signal};
-        sigaction(
-            Signal::SIGPIPE,
-            &SigAction::new(SigHandler::SigIgn, SaFlags::empty(), SigSet::empty()),
-        )
-        .unwrap();
+
+        unsafe {
+            sigaction(
+                Signal::SIGPIPE,
+                &SigAction::new(SigHandler::SigIgn, SaFlags::empty(), SigSet::empty()),
+            )
+            .unwrap();
+        }
 
         let wlcs = W::new();
         let dsh = Box::new(DisplayServerHandle {
@@ -70,11 +109,17 @@ unsafe extern "C" fn create_server_ffi<W: Wlcs>(
 #[allow(unused)]
 unsafe extern "C" fn destroy_server_ffi<W: Wlcs>(ptr: *mut WlcsDisplayServer) {
     if let Err(err) = std::panic::catch_unwind(|| {
-        let _server = Box::from_raw(container_of!(
-            ptr,
-            DisplayServerHandle::<W>,
-            wlcs_display_server
-        ));
+        // SAFETY:
+        // - wlcs will no longer use the WlcsDisplayServer pointer. This ensures we take back ownership of the
+        //   allocation.
+        // - The DisplayServerHandle was created using Box::from_raw, ensuring the memory layout is correct.
+        let _server = unsafe {
+            Box::from_raw(container_of!(
+                ptr,
+                DisplayServerHandle::<W>,
+                wlcs_display_server
+            ))
+        };
         assert_eq!(_server.wlcs_display_server.version, 3);
     }) {
         println!(
@@ -88,7 +133,7 @@ unsafe extern "C" fn destroy_server_ffi<W: Wlcs>(ptr: *mut WlcsDisplayServer) {
 #[allow(unused)]
 unsafe extern "C" fn start_server_ffi<W: Wlcs>(ptr: *mut WlcsDisplayServer) {
     if let Err(err) = std::panic::catch_unwind(|| {
-        let server = &mut *container_of!(ptr, DisplayServerHandle<W>, wlcs_display_server);
+        let server = unsafe { get_display_server_handle_mut::<W>(ptr) };
         assert_eq!(server.wlcs_display_server.version, 3);
         server.wlcs.start()
     }) {
@@ -103,7 +148,7 @@ unsafe extern "C" fn start_server_ffi<W: Wlcs>(ptr: *mut WlcsDisplayServer) {
 #[allow(unused)]
 unsafe extern "C" fn stop_server_ffi<W: Wlcs>(ptr: *mut WlcsDisplayServer) {
     if let Err(err) = std::panic::catch_unwind(|| {
-        let server = &mut *container_of!(ptr, DisplayServerHandle<W>, wlcs_display_server);
+        let server = unsafe { get_display_server_handle_mut::<W>(ptr) };
         assert_eq!(server.wlcs_display_server.version, 3);
         server.wlcs.stop();
     }) {
@@ -118,7 +163,7 @@ unsafe extern "C" fn stop_server_ffi<W: Wlcs>(ptr: *mut WlcsDisplayServer) {
 #[allow(unused)]
 unsafe extern "C" fn create_client_socket_ffi<W: Wlcs>(ptr: *mut WlcsDisplayServer) -> c_int {
     match std::panic::catch_unwind(|| {
-        let server = &mut *container_of!(ptr, DisplayServerHandle<W>, wlcs_display_server);
+        let server = unsafe { get_display_server_handle_mut::<W>(ptr) };
         assert_eq!(server.wlcs_display_server.version, 3);
         server.wlcs.create_client_socket()
     }) {
@@ -142,7 +187,7 @@ unsafe extern "C" fn position_window_absolute_ffi<W: Wlcs>(
     y: c_int,
 ) {
     if let Err(err) = std::panic::catch_unwind(|| {
-        let server = &mut *container_of!(ptr, DisplayServerHandle<W>, wlcs_display_server);
+        let server = unsafe { get_display_server_handle_mut::<W>(ptr) };
         assert_eq!(server.wlcs_display_server.version, 3);
         server.wlcs.position_window_absolute(display, surface, x, y);
     }) {
@@ -157,7 +202,7 @@ unsafe extern "C" fn position_window_absolute_ffi<W: Wlcs>(
 #[allow(unused)]
 unsafe extern "C" fn create_pointer_ffi<W: Wlcs>(ptr: *mut WlcsDisplayServer) -> *mut WlcsPointer {
     match std::panic::catch_unwind(|| {
-        let server = &mut *container_of!(ptr, DisplayServerHandle<W>, wlcs_display_server);
+        let server = unsafe { get_display_server_handle_mut::<W>(ptr) };
         assert_eq!(server.wlcs_display_server.version, 3);
         let Some(p) = server.wlcs.create_pointer() else { return std::ptr::null_mut() };
 
@@ -182,7 +227,7 @@ unsafe extern "C" fn create_pointer_ffi<W: Wlcs>(ptr: *mut WlcsDisplayServer) ->
 #[allow(unused)]
 unsafe extern "C" fn create_touch_ffi<W: Wlcs>(ptr: *mut WlcsDisplayServer) -> *mut WlcsTouch {
     match std::panic::catch_unwind(|| {
-        let server = &mut *container_of!(ptr, DisplayServerHandle<W>, wlcs_display_server);
+        let server = unsafe { get_display_server_handle_mut::<W>(ptr) };
         assert_eq!(server.wlcs_display_server.version, 3);
         let Some(t) = server.wlcs.create_touch() else { return std::ptr::null_mut(); };
         let handle: *mut TouchHandle<W> = Box::into_raw(Box::new(TouchHandle {
@@ -208,7 +253,7 @@ unsafe extern "C" fn get_descriptor_ffi<W: Wlcs>(
     ptr: *const WlcsDisplayServer,
 ) -> *const WlcsIntegrationDescriptor {
     match std::panic::catch_unwind(|| {
-        let server = &*container_of!(ptr, DisplayServerHandle<W>, wlcs_display_server);
+        let server = unsafe { get_display_server_handle_ref::<W>(ptr) };
         server.wlcs.get_descriptor()
     }) {
         Ok(ptr) => ptr as *const WlcsIntegrationDescriptor,
@@ -229,7 +274,7 @@ unsafe extern "C" fn start_on_this_thread_ffi<W: Wlcs>(
     event_loop: *mut wl_event_loop,
 ) {
     if let Err(err) = std::panic::catch_unwind(|| {
-        let server = &mut *container_of!(ptr, DisplayServerHandle<W>, wlcs_display_server);
+        let server = unsafe { get_display_server_handle_mut::<W>(ptr) };
         assert_eq!(server.wlcs_display_server.version, 3);
         server.wlcs.start_on_this_thread(event_loop)
     }) {
@@ -287,8 +332,8 @@ unsafe extern "C" fn pointer_move_absolute_ffi<W: Wlcs>(
     y: wl_fixed_t,
 ) {
     if let Err(err) = std::panic::catch_unwind(|| {
-        let server = &mut *container_of!(ptr, PointerHandle<W>, wlcs_pointer);
-        server.p.move_absolute(x, y);
+        let pointer = unsafe { get_pointer_handle::<W>(ptr) };
+        pointer.p.move_absolute(x, y);
     }) {
         println!(
             "panic in pointer_move_absolute_ffi on ptr: {:p} (type {:?})",
@@ -304,8 +349,8 @@ unsafe extern "C" fn pointer_move_relative_ffi<W: Wlcs>(
     dy: wl_fixed_t,
 ) {
     if let Err(err) = std::panic::catch_unwind(|| {
-        let server = &mut *container_of!(ptr, PointerHandle<W>, wlcs_pointer);
-        server.p.move_relative(dx, dy);
+        let pointer = unsafe { get_pointer_handle::<W>(ptr) };
+        pointer.p.move_relative(dx, dy);
     }) {
         println!(
             "panic in pointer_move_relative_ffi on ptr: {:p} (type {:?})",
@@ -317,8 +362,8 @@ unsafe extern "C" fn pointer_move_relative_ffi<W: Wlcs>(
 
 unsafe extern "C" fn pointer_button_up_ffi<W: Wlcs>(ptr: *mut WlcsPointer, button: i32) {
     if let Err(err) = std::panic::catch_unwind(|| {
-        let server = &mut *container_of!(ptr, PointerHandle<W>, wlcs_pointer);
-        server.p.button_up(button)
+        let pointer = unsafe { get_pointer_handle::<W>(ptr) };
+        pointer.p.button_up(button)
     }) {
         println!(
             "panic in pointer_button_up_ffi on ptr: {:p} (type {:?})",
@@ -330,8 +375,8 @@ unsafe extern "C" fn pointer_button_up_ffi<W: Wlcs>(ptr: *mut WlcsPointer, butto
 
 unsafe extern "C" fn pointer_button_down_ffi<W: Wlcs>(ptr: *mut WlcsPointer, button: i32) {
     if let Err(err) = std::panic::catch_unwind(|| {
-        let server = &mut *container_of!(ptr, PointerHandle<W>, wlcs_pointer);
-        server.p.button_down(button)
+        let pointer = unsafe { get_pointer_handle::<W>(ptr) };
+        pointer.p.button_down(button)
     }) {
         println!(
             "panic in pointer_button_down_ffi on ptr: {:p} (type {:?})",
@@ -343,7 +388,12 @@ unsafe extern "C" fn pointer_button_down_ffi<W: Wlcs>(ptr: *mut WlcsPointer, but
 
 unsafe extern "C" fn pointer_destroy_ffi<W: Wlcs>(ptr: *mut WlcsPointer) {
     if let Err(err) = std::panic::catch_unwind(|| {
-        let mut pointer = Box::from_raw(container_of!(ptr, PointerHandle<W>, wlcs_pointer));
+        // SAFETY:
+        // - wlcs will no longer use the WlcsPointer pointer. This ensures we take back ownership of the
+        //   allocation.
+        // - The PointerHandle was created using Box::from_raw, ensuring the memory layout is correct.
+        let mut pointer =
+            unsafe { Box::from_raw(container_of!(ptr, PointerHandle<W>, wlcs_pointer)) };
         pointer.p.destroy()
     }) {
         println!(
@@ -367,8 +417,8 @@ const fn wlcs_pointer<W: Wlcs>() -> WlcsPointer {
 
 unsafe extern "C" fn touch_down_ffi<W: Wlcs>(ptr: *mut WlcsTouch, x: wl_fixed_t, y: wl_fixed_t) {
     if let Err(err) = std::panic::catch_unwind(|| {
-        let server = &mut *container_of!(ptr, TouchHandle<W>, wlcs_touch);
-        server.t.touch_down(x, y);
+        let touch = unsafe { get_touch_handle::<W>(ptr) };
+        touch.t.touch_down(x, y);
     }) {
         println!(
             "panic in touch_down_ffi on ptr: {:p} (type {:?})",
@@ -380,8 +430,8 @@ unsafe extern "C" fn touch_down_ffi<W: Wlcs>(ptr: *mut WlcsTouch, x: wl_fixed_t,
 
 unsafe extern "C" fn touch_move_ffi<W: Wlcs>(ptr: *mut WlcsTouch, x: wl_fixed_t, y: wl_fixed_t) {
     if let Err(err) = std::panic::catch_unwind(|| {
-        let server = &mut *container_of!(ptr, TouchHandle<W>, wlcs_touch);
-        server.t.touch_move(x, y);
+        let touch = unsafe { get_touch_handle::<W>(ptr) };
+        touch.t.touch_move(x, y);
     }) {
         println!(
             "panic in touch_down_ffi on ptr: {:p} (type {:?})",
@@ -393,8 +443,8 @@ unsafe extern "C" fn touch_move_ffi<W: Wlcs>(ptr: *mut WlcsTouch, x: wl_fixed_t,
 
 unsafe extern "C" fn touch_up_ffi<W: Wlcs>(ptr: *mut WlcsTouch) {
     if let Err(err) = std::panic::catch_unwind(|| {
-        let server = &mut *container_of!(ptr, TouchHandle<W>, wlcs_touch);
-        server.t.touch_up();
+        let touch = unsafe { get_touch_handle::<W>(ptr) };
+        touch.t.touch_up();
     }) {
         println!(
             "panic in touch_up_ffi on ptr: {:p} (type {:?})",
@@ -406,7 +456,11 @@ unsafe extern "C" fn touch_up_ffi<W: Wlcs>(ptr: *mut WlcsTouch) {
 
 unsafe extern "C" fn touch_destroy_ffi<W: Wlcs>(ptr: *mut WlcsTouch) {
     if let Err(err) = std::panic::catch_unwind(|| {
-        let mut touch = Box::from_raw(container_of!(ptr, TouchHandle<W>, wlcs_touch));
+        // SAFETY:
+        // - wlcs will no longer use the WlcsTouch pointer. This ensures we take back ownership of the
+        //   allocation.
+        // - The TouchHandle was created using Box::from_raw, ensuring the memory layout is correct.
+        let mut touch = unsafe { Box::from_raw(container_of!(ptr, TouchHandle<W>, wlcs_touch)) };
         touch.t.destroy()
     }) {
         println!(
