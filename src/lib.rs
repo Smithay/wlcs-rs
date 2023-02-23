@@ -89,7 +89,7 @@ pub trait Wlcs {
     fn create_touch(&mut self) -> Option<Self::Touch>;
 
     /// Get the Integration descriptor
-    fn get_descriptor(&self) -> *const WlcsIntegrationDescriptor;
+    fn get_descriptor(&self) -> &WlcsIntegrationDescriptor;
 
     /// Option current thread startup
     fn start_on_this_thread(&self, _event_loop: *mut wl_event_loop) {}
