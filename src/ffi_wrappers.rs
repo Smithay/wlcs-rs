@@ -2,7 +2,7 @@
 //! Wrappers/helpers for setting up WLCS server integration
 //!
 
-use std::ffi::{c_char, c_int};
+use std::{ffi::{c_char, c_int}, os::fd::IntoRawFd};
 
 use container_of::container_of;
 use wayland_sys::{
@@ -167,7 +167,8 @@ unsafe extern "C" fn create_client_socket_ffi<W: Wlcs>(ptr: *mut WlcsDisplayServ
         assert_eq!(server.wlcs_display_server.version, 3);
         server.wlcs.create_client_socket()
     }) {
-        Ok(ret) => ret,
+        // WLCS takes ownership of the file descriptor for the client socket.
+        Ok(ret) => ret.into_raw_fd(),
         Err(err) => {
             println!(
                 "panic in wlcs_display_server::create_client_socket_ffi on ptr: {:p} (type {:?})",
