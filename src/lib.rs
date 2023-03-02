@@ -74,7 +74,7 @@ pub trait Wlcs {
     fn stop(&mut self);
 
     /// Create a socket for a Wayland client.
-    fn create_client_socket(&self) -> OwnedFd;
+    fn create_client_socket(&self) -> std::io::Result<OwnedFd>;
 
     /// Position a window in absolute coordinates
     fn position_window_absolute(
