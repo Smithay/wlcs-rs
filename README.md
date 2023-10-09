@@ -9,5 +9,5 @@ usage.
 Add wlcs-rs as a dependency in `Cargo.toml`
 ```
 [dependencies]
-udev = "^0.1.0"
+wlcs-rs = "^0.1.0"
 ```
