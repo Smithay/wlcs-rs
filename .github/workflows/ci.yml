@@ -37,6 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - run: sudo apt-get install -y libwayland-dev
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
         with:
@@ -63,6 +64,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
+      - run: sudo apt-get install -y libwayland-dev
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
@@ -92,6 +94,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
+      - run: sudo apt-get install -y libwayland-dev
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
@@ -141,6 +144,8 @@ jobs:
           profile: minimal
           default: true
           override: true
+      - name: Install libwayland-dev
+        run: sudo apt-get install -y libdrm-dev libwayland-dev
       - name: Cargo cache
         uses: actions/cache@v2
         with:
