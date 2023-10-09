@@ -208,7 +208,9 @@ unsafe extern "C" fn create_pointer_ffi<W: Wlcs>(ptr: *mut WlcsDisplayServer) ->
     match std::panic::catch_unwind(|| {
         let server = unsafe { get_display_server_handle_mut::<W>(ptr) };
         assert_eq!(server.wlcs_display_server.version, 3);
-        let Some(p) = server.wlcs.create_pointer() else { return std::ptr::null_mut() };
+        let Some(p) = server.wlcs.create_pointer() else {
+            return std::ptr::null_mut();
+        };
 
         let handle: *mut PointerHandle<W> = Box::into_raw(Box::new(PointerHandle {
             wlcs_pointer: wlcs_pointer::<W>(),
@@ -233,7 +235,9 @@ unsafe extern "C" fn create_touch_ffi<W: Wlcs>(ptr: *mut WlcsDisplayServer) -> *
     match std::panic::catch_unwind(|| {
         let server = unsafe { get_display_server_handle_mut::<W>(ptr) };
         assert_eq!(server.wlcs_display_server.version, 3);
-        let Some(t) = server.wlcs.create_touch() else { return std::ptr::null_mut(); };
+        let Some(t) = server.wlcs.create_touch() else {
+            return std::ptr::null_mut();
+        };
         let handle: *mut TouchHandle<W> = Box::into_raw(Box::new(TouchHandle {
             wlcs_touch: wlcs_touch::<W>(),
             t,
