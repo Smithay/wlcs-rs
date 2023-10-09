@@ -3,6 +3,8 @@ name = "wlcs"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.56.1" # nix
+description = "Bindings/helpers for WLCS (Wayland Conformance Test Suite)"
+license = "MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
