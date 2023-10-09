@@ -7,7 +7,6 @@ rust-version = "1.56.1" # nix
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-calloop = "0.12.2"
 container_of = "0.5.1"
 memoffset = "0.9.0"
 nix = { version = "0.27.1", default-features = false, features = ["signal"] }
